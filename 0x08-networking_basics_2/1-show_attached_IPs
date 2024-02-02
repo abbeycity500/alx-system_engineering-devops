@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# A script that displays all active IPv4 IPs on machine its executed
+
+ifconfig | grep 'inet' | awk '{print $2}'
