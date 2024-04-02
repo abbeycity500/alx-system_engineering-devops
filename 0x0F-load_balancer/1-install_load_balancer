@@ -20,8 +20,8 @@ frontend http_front
 
 backend http_back
     balance roundrobin
-    server 524230-web-01 52.90.13.104:80 check
-    server 524230-web-02 54.226.18.131:80 check
+    server [STUDENT-ID]-web-01 52.90.13.104:80 check
+    server [STUDENT_ID]-web-02 54.226.18.131:80 check
 EOT
 
 sudo haproxy -c -f /etc/haproxy/haproxy.cfg
