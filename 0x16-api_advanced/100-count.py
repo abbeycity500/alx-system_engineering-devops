@@ -1,50 +1,95 @@
 #!/usr/bin/python3
-""" Module for a function that queries the Reddit API recursively."""
-
-
+""" querry reddit api for subreddit info
+"""
 import requests
+import requests.auth
+import string
+from time import sleep
 
 
-def count_words(subreddit, word_list, after='', word_dict={}):
-    """ A function that queries the Reddit API parses the title of
-    all hot articles, and prints a sorted count of given keywords
-    (case-insensitive, delimited by spaces.
-    Javascript should count as javascript, but java should not).
-    If no posts match or the subreddit is invalid, it prints nothing.
+def authenticate():
+    """ authenticate function
+    doesnt take parameters returns token_type and access_token
     """
+    usr_name = "jgadelugo"
+    temp = "HolbertonPass845"
 
-    if not word_dict:
-        for word in word_list:
-            if word.lower() not in word_dict:
-                word_dict[word.lower()] = 0
+    secret = "Z4Sa9bA6RRE44qDyhHQiTlW1gd0"
+    client_id = "hy4KvoK0W2iDvw"
 
-    if after is None:
-        wordict = sorted(word_dict.items(), key=lambda x: (-x[1], x[0]))
-        for word in wordict:
-            if word[1]:
-                print('{}: {}'.format(word[0], word[1]))
+    client_auth = requests.auth.HTTPBasicAuth(client_id, secret)
+    post_data = {"grant_type": "password",
+                 "username": usr_name,
+                 "password": temp}
+
+    headers = {"User-Agent": "ChangeMeClient/0.1 by {}".format(usr_name)}
+    response = requests.post("https://www.reddit.com/api/v1/access_token",
+                             auth=client_auth, data=post_data, headers=headers)
+    auth_json = response.json()
+
+    token_type = auth_json['token_type']
+    access_token = auth_json['access_token']
+
+    return (token_type, access_token)
+
+
+def recurse(subreddit, hot_list=[], after=[], t_type=None, a_token=None):
+    """ querry reddit api for hot post
+    recursively get all hot post from subreddit
+    """
+    sub = subreddit
+    subreddit = "/r/{}/hot".format(sub)
+    usr_name = "jgadelugo"
+
+    if len(after) == 0:
+        t_type, a_token = authenticate()
+
+    headers = {"Authorization": "{} {}".format(t_type, a_token),
+               "User-Agent": "ChangeMeClient/0.1 by {}".format(usr_name)}
+    if len(after) != 0:
+        param = {"limit": 100, "after": after[-1]}
+    else:
+        param = {"limit": 100}
+
+    sleep(1)
+    query = "https://oauth.reddit.com{}".format(subreddit)
+    res = requests.get(query, headers=headers, params=param)
+
+    status = res.status_code
+
+    if (status != 200):
         return None
+    else:
+        data = res.json()
+        if data['data']['after'] in after:
+            return hot_list
+        after.append(data['data']['after'])
+        posts = data["data"]['children']
+        for post in posts:
+            hot_list.append(post['data']['title'])
 
-    url = 'https://www.reddit.com/r/{}/hot/.json'.format(subreddit)
-    header = {'user-agent': 'redquery'}
-    parameters = {'limit': 100, 'after': after}
-    response = requests.get(url, headers=header, params=parameters,
-                            allow_redirects=False)
+        return recurse(sub, hot_list, after, t_type, a_token)
 
-    if response.status_code != 200:
-        return None
 
-    try:
-        hot = response.json()['data']['children']
-        aft = response.json()['data']['after']
-        for post in hot:
-            title = post['data']['title']
-            lower = [word.lower() for word in title.split(' ')]
-
-            for word in word_dict.keys():
-                word_dict[word] += lower.count(word)
-
-    except Exception:
-        return None
-
-    count_words(subreddit, word_list, aft, word_dict)
+def count_words(subreddit, word_list):
+    """ count words """
+    flag = 0
+    words = {}
+    for word in word_list:
+        words[word] = 0
+    hot_list = recurse(subreddit)
+    if hot_list is None:
+        return
+    for hot in hot_list:
+        hot.translate(str.maketrans('', '', string.punctuation))
+        for h in hot.lower().split():
+            for word in word_list:
+                if h.lower() == word.lower():
+                    words[word] += 1
+    sorted_words = sorted(words.items(), key=lambda x: (-x[1], x[0]))
+    for key, value in sorted_words:
+        if value != 0:
+            print("{}: {}".format(key, value))
+            flag = 1
+    if flag == 0:
+        print()
